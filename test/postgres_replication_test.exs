@@ -12,7 +12,7 @@ defmodule PostgresReplicationTest do
           application_name: "PostgresReplication"
         ]
       ],
-      table: "test",
+      table: :all,
       opts: [name: __MODULE__, auto_reconnect: true],
       handler_module: PostgresReplicationTest.PgoutputHandler,
       parent_pid: self()
@@ -23,12 +23,17 @@ defmodule PostgresReplicationTest do
 
     Postgrex.query!(
       conn,
-      "INSERT INTO test (column1, column2) VALUES ('Random Text 1', 'Random Text 2')",
+      "INSERT INTO random_values (value) VALUES ('Random Text 1')",
       []
     )
+
     assert_receive %PostgresReplication.Decoder.Messages.Begin{}
     assert_receive %PostgresReplication.Decoder.Messages.Relation{}
-    assert_receive %PostgresReplication.Decoder.Messages.Insert{tuple_data: {_, "Random Text 1", "Random Text 2"}}
+
+    assert_receive %PostgresReplication.Decoder.Messages.Insert{
+      tuple_data: {_, "Random Text 1"}
+    }
+
     assert_receive %PostgresReplication.Decoder.Messages.Commit{}
   end
 

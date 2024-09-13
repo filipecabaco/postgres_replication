@@ -31,8 +31,8 @@ defmodule PostgresReplication do
             schema: "public",
             opts: [],
             step: :disconnected,
-            publication_name: "postgrex_replication",
-            replication_slot_name: "postgrex_replication_slot",
+            publication_name: nil,
+            replication_slot_name: nil,
             output_plugin: "pgoutput",
             proto_version: 1,
             handler_module: nil,
@@ -57,7 +57,7 @@ defmodule PostgresReplication do
 
   @impl true
   def handle_connect(state) do
-    %__MODULE__{replication_slot_name: replication_slot_name} = state
+    replication_slot_name = replication_slot_name(state)
     Logger.info("Checking if replication slot #{replication_slot_name} exists")
 
     query =
@@ -71,7 +71,7 @@ defmodule PostgresReplication do
         [%Postgrex.Result{num_rows: 1}],
         %__MODULE__{step: :check_replication_slot} = state
       ) do
-    {:query, "SELECT 1", %{state | step: :create_publication}}
+    {:query, "SELECT 1", %{state | step: :check_publication}}
   end
 
   def handle_result(
@@ -79,27 +79,28 @@ defmodule PostgresReplication do
         %__MODULE__{step: :check_replication_slot} = state
       ) do
     %__MODULE__{
-      replication_slot_name: replication_slot_name,
       output_plugin: output_plugin,
       step: :check_replication_slot
     } = state
+
+    replication_slot_name = replication_slot_name(state)
 
     Logger.info("Create replication slot #{replication_slot_name} using plugin #{output_plugin}")
 
     query =
       "CREATE_REPLICATION_SLOT #{replication_slot_name} TEMPORARY LOGICAL #{output_plugin} NOEXPORT_SNAPSHOT"
 
-    {:query, query, %{state | step: :create_publication}}
+    {:query, query, %{state | step: :check_publication}}
   end
 
-  def handle_result(_, %__MODULE__{step: :check_publication} = state) do
-    %__MODULE__{
-      publication_name: publication_name,
-      table: table,
-      schema: schema
-    } = state
+  def handle_result(
+        [%Postgrex.Result{}],
+        %__MODULE__{step: :check_publication} = state
+      ) do
+    %__MODULE__{table: table, schema: schema} = state
 
-    Logger.info("Check publication #{publication_name} for table  #{schema}.#{table} exists")
+    publication_name = publication_name(state)
+    Logger.info("Check publication #{publication_name} for table #{schema}.#{table} exists")
     query = "SELECT * FROM pg_publication WHERE pubname = '#{publication_name}'"
 
     {:query, query, %{state | step: :create_publication}}
@@ -107,20 +108,33 @@ defmodule PostgresReplication do
 
   def handle_result(
         [%Postgrex.Result{num_rows: 0}],
+        %__MODULE__{step: :create_publication, table: :all} = state
+      ) do
+    publication_name = publication_name(state)
+    Logger.info("Create publication #{publication_name} for all tables")
+
+    query =
+      "CREATE PUBLICATION #{publication_name} FOR ALL TABLES"
+
+    {:query, query, %{state | step: :start_replication_slot}}
+  end
+
+  def handle_result(
+        [%Postgrex.Result{num_rows: 0}],
         %__MODULE__{step: :create_publication} = state
       ) do
     %__MODULE__{
-      publication_name: publication_name,
       table: table,
       schema: schema
     } = state
 
-    Logger.info("Create publication #{publication_name} for table  #{schema}.#{table}")
+    publication_name = publication_name(state)
+    Logger.info("Create publication #{publication_name} for table #{schema}.#{table}")
 
     query =
       "CREATE PUBLICATION #{publication_name} FOR TABLE #{schema}.#{table}"
 
-    {:query, query, %{state | step: :create_slot}}
+    {:query, query, %{state | step: :start_replication_slot}}
   end
 
   def handle_result(
@@ -133,12 +147,13 @@ defmodule PostgresReplication do
   end
 
   @impl true
-  def handle_result(_, %__MODULE__{step: :start_replication_slot} = state) do
-    %__MODULE__{
-      replication_slot_name: replication_slot_name,
-      proto_version: proto_version,
-      publication_name: publication_name
-    } = state
+  def handle_result(
+        [%Postgrex.Result{}],
+        %__MODULE__{step: :start_replication_slot} = state
+      ) do
+    %__MODULE__{proto_version: proto_version} = state
+    replication_slot_name = replication_slot_name(state)
+    publication_name = publication_name(state)
 
     Logger.info(
       "Starting stream replication for slot #{replication_slot_name} using publication #{publication_name} and protocol version #{proto_version}"
@@ -152,7 +167,10 @@ defmodule PostgresReplication do
 
   @impl true
   def handle_disconnect(state) do
-    IO.inspect(state)
+    Logger.error(
+      "Disconnected from the server: #{inspect(state |> Map.from_struct() |> Map.drop([:connection_opts]))}"
+    )
+
     {:noreply, %{state | step: :disconnected}}
   end
 
@@ -164,5 +182,29 @@ defmodule PostgresReplication do
       {:reply, messages} -> {:noreply, messages, state}
       :noreply -> {:noreply, state}
     end
+  end
+
+  defp publication_name(%__MODULE__{publication_name: nil, table: :all}) do
+    "all_table_publication"
+  end
+
+  defp publication_name(%__MODULE__{publication_name: nil, table: table, schema: schema}) do
+    "#{schema}_#{table}_publication"
+  end
+
+  defp publication_name(%__MODULE__{publication_name: publication_name}) do
+    publication_name
+  end
+
+  def replication_slot_name(%__MODULE__{replication_slot_name: nil, table: :all}) do
+    "all_table_slot"
+  end
+
+  def replication_slot_name(%__MODULE__{replication_slot_name: nil, table: table, schema: schema}) do
+    "#{schema}_#{table}_replication_slot"
+  end
+
+  def replication_slot_name(%__MODULE__{replication_slot_name: replication_slot_name}) do
+    replication_slot_name
   end
 end
