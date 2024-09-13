@@ -1,0 +1,1 @@
+CREATE TABLE random_values (id SERIAL PRIMARY KEY, value text);
