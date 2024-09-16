@@ -1,0 +1,18 @@
+services:
+  db-1:
+    image: postgres:14
+    volumes:
+      - ./db:/docker-entrypoint-initdb.d/
+    ports:
+      - "5432:5432"
+    command: ["postgres", "-c", "wal_level=logical"]
+    environment:
+      POSTGRES_PASSWORD: postgres
+  db-2:
+    image: postgres:14
+    volumes:
+      - ./db:/docker-entrypoint-initdb.d/
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_PASSWORD: postgres
