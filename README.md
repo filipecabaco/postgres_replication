@@ -5,32 +5,35 @@ Simple wrapper to consume WAL entries from your Postgres Database. It offers an 
 It also offers a decoder in PostgresReplication.Decoder based on [https://github.com/cainophile/cainophile](https://github.com/cainophile/cainophile)
 
 ## Usage
-Provide the options to connect to the database and the message handler module:
+Provide the options to connect to the database and the message handler module. As an example present in the [examples](./example/) folder here's how you can track events on all tables:
 
 ```elixir
-defmodule PgoutputHandler do
+defmodule Handler do
   @behaviour PostgresReplication.Handler
+  import PostgresReplication.Decoder
+  import PostgresReplication.Protocol
+  alias PostgresReplication.Protocol.KeepAlive
 
   @impl true
-  def call(<<?w, _header::192, message::binary>>, parent_pid) do
-    message |> PostgresReplication.Decoder.decode_message() |> then(&send(parent_pid, &1))
+  def call(message, _parent_pid) when is_write(message) do
+    message |> decode_message() |> IO.inspect()
     :noreply
   end
 
-  # Handles keep alive messages
-  def call(<<?k, wal_end::64, _clock::64, reply>>, _) do
-    messages =
-      case reply do
-        1 -> [<<?r, wal_end + 1::64, wal_end + 1::64, wal_end + 1::64, current_time()::64, 0>>]
-        0 -> []
+  def call(message, _parent_pid) when is_keep_alive(message) do
+    reply =
+      case parse(message) do
+        %KeepAlive{reply: :now, wal_end: wal_end} ->
+          standby(wal_end + 1, wal_end + 1, wal_end + 1, :now)
+
+        _ ->
+          hold()
       end
 
-    {:reply, messages}
+    {:reply, reply}
   end
-  def call(_, _), do: :noreply
 
-  @epoch DateTime.to_unix(~U[2000-01-01 00:00:00Z], :microsecond)
-  defp current_time(), do: System.os_time(:microsecond) - @epoch
+  def call(_, _), do: :noreply
 end
 
 options = %PostgresReplication{
@@ -39,21 +42,18 @@ options = %PostgresReplication{
     username: "postgres",
     password: "postgres",
     database: "postgres",
+    port: 5432,
     parameters: [
       application_name: "PostgresReplication"
     ]
   ],
-  table: "test",
+  table: :all,
   opts: [name: __MODULE__, auto_reconnect: true],
-  handler_module: PgoutputHandler,
+  handler_module: Handler,
   parent_pid: self()
 }
 
 PostgresReplication.start_link(options)
-
-receive do
-  msg -> IO.inspect msg
-end
 ```
 
 ## Installation

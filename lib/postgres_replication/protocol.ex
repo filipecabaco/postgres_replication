@@ -31,6 +31,7 @@ defmodule PostgresReplication.Protocol do
 
   Check https://www.postgresql.org/docs/current/protocol-replication.html#PROTOCOL-REPLICATION-STANDBY-STATUS-UPDATE for more information
   """
+  @spec standby(integer(), integer(), integer(), :now | :later, integer()) :: binary()
   def standby(last_wal_received, last_wal_flushed, last_wal_applied, reply, clock \\ nil)
 
   def standby(last_wal_received, last_wal_flushed, last_wal_applied, reply, nil) do
@@ -55,6 +56,7 @@ defmodule PostgresReplication.Protocol do
 
   https://www.postgresql.org/docs/current/protocol-replication.html#PROTOCOL-REPLICATION-HOT-STANDBY-FEEDBACK-MESSAGE
   """
+  @spec hot_standby(integer(), integer(), integer(), integer(), integer()) :: binary()
   def hot_standby(
         standby_global_xmin,
         standby_global_xmin_epoch,
@@ -86,8 +88,10 @@ defmodule PostgresReplication.Protocol do
         standby_catalog_xmin_epoch,
         clock
       ) do
-    <<?h, clock::64, standby_global_xmin::32, standby_global_xmin_epoch::32,
-      standby_catalog_xmin::32, standby_catalog_xmin_epoch::32>>
+    [
+      <<?h, clock::64, standby_global_xmin::32, standby_global_xmin_epoch::32,
+        standby_catalog_xmin::32, standby_catalog_xmin_epoch::32>>
+    ]
   end
 
   @doc """
