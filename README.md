@@ -10,13 +10,16 @@ Provide the options to connect to the database and the message handler module. A
 ```elixir
 defmodule Handler do
   @behaviour PostgresReplication.Handler
-  import PostgresReplication.Decoder
   import PostgresReplication.Protocol
   alias PostgresReplication.Protocol.KeepAlive
 
   @impl true
   def call(message, _parent_pid) when is_write(message) do
-    message |> decode_message() |> IO.inspect()
+    message
+    |> PostgresReplication.Protocol.parse()
+    |> PostgresReplication.Decoder.decode_message()
+    |> IO.inspect()
+
     :noreply
   end
 
@@ -35,6 +38,7 @@ defmodule Handler do
 
   def call(_, _), do: :noreply
 end
+
 
 options = %PostgresReplication{
   connection_opts: [

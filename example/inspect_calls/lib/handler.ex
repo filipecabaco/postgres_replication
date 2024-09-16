@@ -1,12 +1,15 @@
 defmodule Handler do
   @behaviour PostgresReplication.Handler
-  import PostgresReplication.Decoder
   import PostgresReplication.Protocol
   alias PostgresReplication.Protocol.KeepAlive
 
   @impl true
   def call(message, _parent_pid) when is_write(message) do
-    message |> decode_message() |> IO.inspect()
+    message
+    |> PostgresReplication.Protocol.parse()
+    |> PostgresReplication.Decoder.decode_message()
+    |> IO.inspect()
+
     :noreply
   end
 

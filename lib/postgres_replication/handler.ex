@@ -5,7 +5,7 @@ defmodule PostgresReplication.Handler do
 
   ## Parameters
     * `message` - The message to be sent to the parent process.
-    * `parent_pid` - The parent process to send the message to.
+    * `target_pid` - The PID of the process to send the message to.
 
   ## Returns
     * `{:reply, [term]}` - The message to be sent to server connection. Read more in PostgresReplication.Protocol

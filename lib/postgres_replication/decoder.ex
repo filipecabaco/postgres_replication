@@ -147,6 +147,8 @@ defmodule PostgresReplication.Decoder do
     Unsupported
   }
 
+  alias PostgresReplication.Protocol.Write
+
   alias PostgresReplication.OidDatabase
 
   @doc """
@@ -158,8 +160,11 @@ defmodule PostgresReplication.Decoder do
       %Realtime.Adapters.Postgres.Decoder.Messages.Insert{relation_id: 24576, tuple_data: {"baz", "560"}}
 
   """
+  def decode_message(%Write{message: message}) when is_binary(message) do
+    decode_message(message)
+  end
+
   def decode_message(message) when is_binary(message) do
-    # Logger.debug("Message before conversion " <> message)
     decode_message_impl(message)
   end
 

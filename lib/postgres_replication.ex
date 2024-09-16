@@ -1,4 +1,21 @@
 defmodule PostgresReplication do
+  @moduledoc """
+  PostgresReplication is a module that provides a way to stream data from a PostgreSQL database using logical replication.
+
+  ## Struct parameters
+  * `connection_opts` - The connection options to connect to the database.
+  * `table` - The table to replicate. If `:all` is passed, it will replicate all tables.
+  * `schema` - The schema of the table to replicate. If not provided, it will use the `public` schema. If `:all` is passed, this option is ignored.
+  * `opts` - The options to pass to this module
+  * `step` - The current step of the replication process
+  * `publication_name` - The name of the publication to create. If not provided, it will use the schema and table name.
+  * `replication_slot_name` - The name of the replication slot to create. If not provided, it will use the schema and table name.
+  * `output_plugin` - The output plugin to use. Default is `pgoutput`.
+  * `proto_version` - The protocol version to use. Default is `1`.
+  * `handler_module` - The module that will handle the data received from the replication stream.
+  * `target_pid` - The PID of the parent process that will receive the data.
+
+  """
   use Postgrex.ReplicationConnection
   require Logger
 
@@ -24,7 +41,7 @@ defmodule PostgresReplication do
           output_plugin: String.t(),
           proto_version: integer(),
           handler_module: Handler.t(),
-          parent_pid: pid()
+          target_pid: pid()
         }
   defstruct connection_opts: nil,
             table: nil,
@@ -36,7 +53,7 @@ defmodule PostgresReplication do
             output_plugin: "pgoutput",
             proto_version: 1,
             handler_module: nil,
-            parent_pid: nil
+            target_pid: nil
 
   def start_link(%__MODULE__{opts: opts, connection_opts: connection_opts} = attrs) do
     Postgrex.ReplicationConnection.start_link(
@@ -141,9 +158,7 @@ defmodule PostgresReplication do
         [%Postgrex.Result{num_rows: 1}],
         %__MODULE__{step: :create_publication} = state
       ) do
-    query = "SELECT 1"
-
-    {:query, query, %{state | step: :start_replication_slot}}
+    {:query, "SELECT 1", %{state | step: :start_replication_slot}}
   end
 
   @impl true
@@ -176,9 +191,9 @@ defmodule PostgresReplication do
 
   @impl true
   def handle_data(data, state) do
-    %__MODULE__{handler_module: handler_module, parent_pid: parent_pid} = state
+    %__MODULE__{handler_module: handler_module, target_pid: target_pid} = state
 
-    case handler_module.call(data, parent_pid) do
+    case handler_module.call(data, target_pid) do
       {:reply, messages} -> {:noreply, messages, state}
       :noreply -> {:noreply, state}
     end
