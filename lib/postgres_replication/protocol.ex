@@ -31,7 +31,7 @@ defmodule PostgresReplication.Protocol do
 
   Check https://www.postgresql.org/docs/current/protocol-replication.html#PROTOCOL-REPLICATION-STANDBY-STATUS-UPDATE for more information
   """
-  @spec standby(integer(), integer(), integer(), :now | :later, integer()) :: binary()
+  @spec standby(integer(), integer(), integer(), :now | :later, integer() | nil) :: [binary()]
   def standby(last_wal_received, last_wal_flushed, last_wal_applied, reply, clock \\ nil)
 
   def standby(last_wal_received, last_wal_flushed, last_wal_applied, reply, nil) do
@@ -56,7 +56,7 @@ defmodule PostgresReplication.Protocol do
 
   https://www.postgresql.org/docs/current/protocol-replication.html#PROTOCOL-REPLICATION-HOT-STANDBY-FEEDBACK-MESSAGE
   """
-  @spec hot_standby(integer(), integer(), integer(), integer(), integer()) :: binary()
+  @spec hot_standby(integer(), integer(), integer(), integer(), integer() | nil) :: [binary()]
   def hot_standby(
         standby_global_xmin,
         standby_global_xmin_epoch,
@@ -97,6 +97,7 @@ defmodule PostgresReplication.Protocol do
   @doc """
   Message to send the server to not do any operation since the server can wait
   """
+  @spec hold() :: []
   def hold(), do: []
 
   @epoch DateTime.to_unix(~U[2000-01-01 00:00:00Z], :microsecond)
