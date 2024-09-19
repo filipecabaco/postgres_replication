@@ -11,5 +11,5 @@ defmodule PostgresReplication.Handler do
     * `{:reply, [term]}` - The message to be sent to server connection. Read more in PostgresReplication.Protocol
     * `:noreply` - No message is sent back to the server.
   """
-  @callback call(any, pid()) :: {:reply, [term]} | :noreply
+  @callback call(any, PostgresReplication.t()) :: {:reply, [term]} | :noreply
 end

@@ -40,8 +40,7 @@ defmodule PostgresReplication do
           replication_slot_name: String.t(),
           output_plugin: String.t(),
           proto_version: integer(),
-          handler_module: Handler.t(),
-          target_pid: pid()
+          handler_module: Handler.t()
         }
   defstruct connection_opts: nil,
             table: nil,
@@ -52,8 +51,7 @@ defmodule PostgresReplication do
             replication_slot_name: nil,
             output_plugin: "pgoutput",
             proto_version: 1,
-            handler_module: nil,
-            target_pid: nil
+            handler_module: nil
 
   def start_link(%__MODULE__{opts: opts, connection_opts: connection_opts} = attrs) do
     Postgrex.ReplicationConnection.start_link(
@@ -69,7 +67,16 @@ defmodule PostgresReplication do
       "Initializing connection with the status: #{inspect(attrs |> Map.from_struct() |> Map.drop([:connection_opts]))}"
     )
 
-    {:ok, %{attrs | step: :disconnected}}
+    publication_name = publication_name(attrs)
+    replication_slot_name = replication_slot_name(attrs)
+
+    {:ok,
+     %{
+       attrs
+       | step: :disconnected,
+         publication_name: publication_name,
+         replication_slot_name: replication_slot_name
+     }}
   end
 
   @impl true
@@ -97,10 +104,9 @@ defmodule PostgresReplication do
       ) do
     %__MODULE__{
       output_plugin: output_plugin,
+      replication_slot_name: replication_slot_name,
       step: :check_replication_slot
     } = state
-
-    replication_slot_name = replication_slot_name(state)
 
     Logger.info("Create replication slot #{replication_slot_name} using plugin #{output_plugin}")
 
@@ -114,9 +120,8 @@ defmodule PostgresReplication do
         [%Postgrex.Result{}],
         %__MODULE__{step: :check_publication} = state
       ) do
-    %__MODULE__{table: table, schema: schema} = state
+    %__MODULE__{table: table, schema: schema, publication_name: publication_name} = state
 
-    publication_name = publication_name(state)
     Logger.info("Check publication #{publication_name} for table #{schema}.#{table} exists")
     query = "SELECT * FROM pg_publication WHERE pubname = '#{publication_name}'"
 
@@ -127,7 +132,7 @@ defmodule PostgresReplication do
         [%Postgrex.Result{num_rows: 0}],
         %__MODULE__{step: :create_publication, table: :all} = state
       ) do
-    publication_name = publication_name(state)
+    %{publication_name: publication_name} = state
     Logger.info("Create publication #{publication_name} for all tables")
 
     query =
@@ -142,10 +147,10 @@ defmodule PostgresReplication do
       ) do
     %__MODULE__{
       table: table,
-      schema: schema
+      schema: schema,
+      publication_name: publication_name
     } = state
 
-    publication_name = publication_name(state)
     Logger.info("Create publication #{publication_name} for table #{schema}.#{table}")
 
     query =
@@ -166,9 +171,11 @@ defmodule PostgresReplication do
         [%Postgrex.Result{}],
         %__MODULE__{step: :start_replication_slot} = state
       ) do
-    %__MODULE__{proto_version: proto_version} = state
-    replication_slot_name = replication_slot_name(state)
-    publication_name = publication_name(state)
+    %__MODULE__{
+      proto_version: proto_version,
+      replication_slot_name: replication_slot_name,
+      publication_name: publication_name
+    } = state
 
     Logger.info(
       "Starting stream replication for slot #{replication_slot_name} using publication #{publication_name} and protocol version #{proto_version}"
@@ -191,23 +198,23 @@ defmodule PostgresReplication do
 
   @impl true
   def handle_data(data, state) do
-    %__MODULE__{handler_module: handler_module, target_pid: target_pid} = state
+    %__MODULE__{handler_module: handler_module} = state
 
-    case handler_module.call(data, target_pid) do
+    case handler_module.call(data, state) do
       {:reply, messages} -> {:noreply, messages, state}
       :noreply -> {:noreply, state}
     end
   end
 
-  defp publication_name(%__MODULE__{publication_name: nil, table: :all}) do
+  def publication_name(%__MODULE__{publication_name: nil, table: :all}) do
     "all_table_publication"
   end
 
-  defp publication_name(%__MODULE__{publication_name: nil, table: table, schema: schema}) do
+  def publication_name(%__MODULE__{publication_name: nil, table: table, schema: schema}) do
     "#{schema}_#{table}_publication"
   end
 
-  defp publication_name(%__MODULE__{publication_name: publication_name}) do
+  def publication_name(%__MODULE__{publication_name: publication_name}) do
     publication_name
   end
 

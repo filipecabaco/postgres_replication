@@ -4,7 +4,7 @@ defmodule Handler do
   alias PostgresReplication.Protocol.KeepAlive
 
   @impl true
-  def call(message, _parent_pid) when is_write(message) do
+  def call(message, _state) when is_write(message) do
     message
     |> PostgresReplication.Protocol.parse()
     |> PostgresReplication.Decoder.decode_message()
@@ -13,7 +13,7 @@ defmodule Handler do
     :noreply
   end
 
-  def call(message, _parent_pid) when is_keep_alive(message) do
+  def call(message, _state) when is_keep_alive(message) do
     reply =
       case parse(message) do
         %KeepAlive{reply: :now, wal_end: wal_end} ->

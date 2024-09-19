@@ -24,30 +24,26 @@ defmodule WalReplication do
   ]
 
   def start(_type, _args) do
-    {:ok, _} =
-      Supervisor.start_link([{WalReplication.Worker, @db2 ++ [name: WalReplication.Worker]}],
-        strategy: :one_for_one,
-        name: WalReplication.Worker.Supervisor
-      )
+    configuration = %PostgresReplication{
+      connection_opts: [
+        hostname: "localhost",
+        username: "postgres",
+        password: "postgres",
+        database: "postgres",
+        port: 5432
+      ],
+      table: :all,
+      opts: [name: __MODULE__, auto_reconnect: true],
+      handler_module: WalReplication.Handler
+    }
+
+    replication_slot = PostgresReplication.replication_slot_name(configuration)
+    handler_name = {:via, Registry, {Registry.Handler, replication_slot}}
 
     children = [
-      {PostgresReplication,
-       %PostgresReplication{
-         connection_opts: [
-           hostname: "localhost",
-           username: "postgres",
-           password: "postgres",
-           database: "postgres",
-           port: 5432,
-           parameters: [
-             application_name: "PostgresReplication"
-           ]
-         ],
-         table: :all,
-         opts: [name: __MODULE__, auto_reconnect: true],
-         handler_module: WalReplication.Handler,
-         parent_pid: Process.whereis(WalReplication.Worker)
-       }}
+      {Registry, keys: :unique, name: Registry.Handler},
+      {WalReplication.Handler, @db2 ++ [name: handler_name]},
+      {PostgresReplication, configuration}
     ]
 
     opts = [strategy: :one_for_one, name: WalReplication.Supervisor]
