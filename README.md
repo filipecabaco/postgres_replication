@@ -8,6 +8,7 @@ It also offers a decoder in PostgresReplication.Decoder based on [https://github
 Provide the options to connect to the database and the message handler module. As an example present in the [examples](./example/) folder here's how you can track events on all tables:
 
 ```elixir
+Mix.install([{:postgres_replication, git: "https://github.com/filipecabaco/postgres_replication.git"}])
 defmodule Handler do
   @behaviour PostgresReplication.Handler
   import PostgresReplication.Protocol
@@ -27,7 +28,8 @@ defmodule Handler do
     reply =
       case parse(message) do
         %KeepAlive{reply: :now, wal_end: wal_end} ->
-          standby(wal_end + 1, wal_end + 1, wal_end + 1, :now)
+          wal_end = wal_end + 1
+          standby(wal_end, wal_end, wal_end, :now)
 
         _ ->
           hold()
@@ -46,21 +48,17 @@ options = %PostgresReplication{
     username: "postgres",
     password: "postgres",
     database: "postgres",
-    port: 5432,
-    parameters: [
-      application_name: "PostgresReplication"
-    ]
   ],
   table: :all,
   opts: [name: __MODULE__, auto_reconnect: true],
   handler_module: Handler,
-  parent_pid: self()
 }
 
 PostgresReplication.start_link(options)
 ```
 
 ## Installation
+
 
 ```elixir
 def deps do

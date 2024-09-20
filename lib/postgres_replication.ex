@@ -40,7 +40,8 @@ defmodule PostgresReplication do
           replication_slot_name: String.t(),
           output_plugin: String.t(),
           proto_version: integer(),
-          handler_module: Handler.t()
+          handler_module: Handler.t(),
+          metadata: map()
         }
   defstruct connection_opts: nil,
             table: nil,
@@ -51,7 +52,8 @@ defmodule PostgresReplication do
             replication_slot_name: nil,
             output_plugin: "pgoutput",
             proto_version: 1,
-            handler_module: nil
+            handler_module: nil,
+            metadata: %{}
 
   def start_link(%__MODULE__{opts: opts, connection_opts: connection_opts} = attrs) do
     Postgrex.ReplicationConnection.start_link(
