@@ -21,7 +21,7 @@ defmodule PostgresReplication.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:postgrex, "~> 0.19.1"}
+      {:postgrex, "~> 0.18.0"}
     ]
   end
 end
