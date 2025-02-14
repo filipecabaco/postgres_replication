@@ -1,6 +1,9 @@
 defmodule PostgresReplication.Protocol do
-  alias PostgresReplication.Protocol.Write
+  @moduledoc """
+  Functions for parsing different types of WAL messages.
+  """
   alias PostgresReplication.Protocol.KeepAlive
+  alias PostgresReplication.Protocol.Write
 
   defguard is_write(value) when binary_part(value, 0, 1) == <<?w>>
   defguard is_keep_alive(value) when binary_part(value, 0, 1) == <<?k>>
@@ -97,9 +100,9 @@ defmodule PostgresReplication.Protocol do
   @doc """
   Message to send the server to not do any operation since the server can wait
   """
-  @spec hold() :: []
-  def hold(), do: []
+  @spec hold :: []
+  def hold, do: []
 
   @epoch DateTime.to_unix(~U[2000-01-01 00:00:00Z], :microsecond)
-  def current_time(), do: System.os_time(:microsecond) - @epoch
+  def current_time, do: System.os_time(:microsecond) - @epoch
 end

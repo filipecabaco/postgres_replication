@@ -1,4 +1,7 @@
 defmodule PostgresReplication.Handler do
+  @moduledoc """
+  A behaviour module for handling logical replication messages.
+  """
   @type t :: module()
   @doc """
   The `call/2` callback is called by the `PostgresReplication` module to send messages to the parent process. It also sends back to the server connection a message in return if the user wants to.

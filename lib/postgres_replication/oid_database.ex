@@ -14,7 +14,7 @@
 #  WHERE typnamespace = (SELECT pgn.oid FROM pg_namespace pgn WHERE nspname = 'pg_catalog') -- Take only builting Postgres types with stable OID (extension types are not guaranteed to be stable)
 #  AND typtype = 'b' -- Only basic types
 #  AND typisdefined -- Ignore undefined types
-
+# credo:disable-for-this-file
 defmodule PostgresReplication.OidDatabase do
   @moduledoc "This module maps a numeric PostgreSQL type ID to a descriptive string."
 

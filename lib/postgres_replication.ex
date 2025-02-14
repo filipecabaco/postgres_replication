@@ -11,7 +11,7 @@ defmodule PostgresReplication do
   * `publication_name` - The name of the publication to create. If not provided, it will use the schema and table name.
   * `replication_slot_name` - The name of the replication slot to create. If not provided, it will use the schema and table name.
   * `output_plugin` - The output plugin to use. Default is `pgoutput`.
-  * `proto_version` - The protocol version to use. Default is `1`.
+  * `output_plugin_options` - The options to pass to the output plugin If you use :publication_name as the value of the key, the lib will automatically set the generated or set value of `publication_name`. Default is [proto_version: "1", publication_names: :publication_name].
   * `handler_module` - The module that will handle the data received from the replication stream.
   * `target_pid` - The PID of the parent process that will receive the data.
 
@@ -40,7 +40,7 @@ defmodule PostgresReplication do
           publication_name: String.t(),
           replication_slot_name: String.t(),
           output_plugin: String.t(),
-          proto_version: integer(),
+          output_plugin_options: Keyword.t(),
           handler_module: Handler.t(),
           metadata: map()
         }
@@ -52,7 +52,7 @@ defmodule PostgresReplication do
             publication_name: nil,
             replication_slot_name: nil,
             output_plugin: "pgoutput",
-            proto_version: 1,
+            output_plugin_options: [proto_version: "1", publication_names: :publication_name],
             handler_module: nil,
             metadata: %{}
 
@@ -175,17 +175,25 @@ defmodule PostgresReplication do
         %__MODULE__{step: :start_replication_slot} = state
       ) do
     %__MODULE__{
-      proto_version: proto_version,
       replication_slot_name: replication_slot_name,
-      publication_name: publication_name
+      publication_name: publication_name,
+      output_plugin_options: output_plugin_options
     } = state
 
     Logger.info(
-      "Starting stream replication for slot #{replication_slot_name} using publication #{publication_name} and protocol version #{proto_version}"
+      "Starting stream replication for slot #{replication_slot_name} using plugins options: #{inspect(output_plugin_options)}"
     )
 
+    output_plugin_options =
+      output_plugin_options
+      |> Enum.map_join(", ", fn
+        {k, :publication_name} -> "#{k} '#{publication_name}'"
+        {k, v} -> "#{k} '#{v}'"
+      end)
+      |> String.trim()
+
     query =
-      "START_REPLICATION SLOT #{replication_slot_name} LOGICAL 0/0 (proto_version '#{proto_version}', publication_names '#{publication_name}')"
+      "START_REPLICATION SLOT #{replication_slot_name} LOGICAL 0/0 (#{output_plugin_options})"
 
     {:stream, query, [], %{state | step: :streaming}}
   end
