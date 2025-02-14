@@ -199,7 +199,6 @@ defmodule PostgresReplication do
 
     query =
       "START_REPLICATION SLOT #{replication_slot_name} LOGICAL 0/0#{output_plugin_options}"
-      |> IO.inspect()
 
     {:stream, query, [], %{state | step: :streaming}}
   end
