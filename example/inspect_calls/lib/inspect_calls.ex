@@ -34,8 +34,7 @@ defmodule InspectCalls do
     query = "INSERT INTO random_values (value) VALUES ('Random Text 1') RETURNING id"
 
     %{rows: [[id]]} =
-      Postgrex.query!(Process.whereis(WalReplication.DB1), query, []) |> IO.inspect()
-
+      Postgrex.query!(Process.whereis(WalReplication.DB1), query, [])
     id
   end
 

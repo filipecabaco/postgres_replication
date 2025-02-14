@@ -185,7 +185,7 @@ defmodule WalReplication.Handler do
         query =
           "DELETE FROM #{schema}.#{table} WHERE #{conditions}"
 
-        Postgrex.query!(pid, query, values) |> IO.inspect()
+        Postgrex.query!(pid, query, values)
 
       :update ->
         column_names = Enum.map(state.values, &elem(&1, 0))

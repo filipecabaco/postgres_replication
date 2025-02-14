@@ -8,7 +8,6 @@ defmodule Handler do
     message
     |> PostgresReplication.Protocol.parse()
     |> PostgresReplication.Decoder.decode_message()
-    |> IO.inspect()
 
     :noreply
   end

@@ -1,4 +1,4 @@
-defmodule PostgresReplication.Decoder do
+defmodule PostgresReplication.Plugin.Pgoutput.Decoder do
   @moduledoc """
   Functions for decoding different types of logical replication messages.
   """
@@ -149,7 +149,7 @@ defmodule PostgresReplication.Decoder do
 
   alias PostgresReplication.Protocol.Write
 
-  alias PostgresReplication.OidDatabase
+  alias PostgresReplication.Plugin.Pgoutput.OidDatabase
 
   @doc """
   Parses logical replication messages from Postgres

@@ -177,11 +177,12 @@ defmodule PostgresReplication do
     %__MODULE__{
       replication_slot_name: replication_slot_name,
       publication_name: publication_name,
+      output_plugin: output_plugin,
       output_plugin_options: output_plugin_options
     } = state
 
     Logger.info(
-      "Starting stream replication for slot #{replication_slot_name} using plugins options: #{inspect(output_plugin_options)}"
+      "Starting stream replication for slot #{replication_slot_name} using the #{output_plugin} plugin with the options: #{inspect(output_plugin_options)}"
     )
 
     output_plugin_options =
@@ -191,9 +192,14 @@ defmodule PostgresReplication do
         {k, v} -> "#{k} '#{v}'"
       end)
       |> String.trim()
+      |> then(fn
+        "" -> ""
+        config -> " (#{config})"
+      end)
 
     query =
-      "START_REPLICATION SLOT #{replication_slot_name} LOGICAL 0/0 (#{output_plugin_options})"
+      "START_REPLICATION SLOT #{replication_slot_name} LOGICAL 0/0#{output_plugin_options}"
+      |> IO.inspect()
 
     {:stream, query, [], %{state | step: :streaming}}
   end

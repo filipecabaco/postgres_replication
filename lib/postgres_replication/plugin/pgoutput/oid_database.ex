@@ -15,7 +15,7 @@
 #  AND typtype = 'b' -- Only basic types
 #  AND typisdefined -- Ignore undefined types
 # credo:disable-for-this-file
-defmodule PostgresReplication.OidDatabase do
+defmodule PostgresReplication.Plugin.Pgoutput.OidDatabase do
   @moduledoc "This module maps a numeric PostgreSQL type ID to a descriptive string."
 
   @doc """
