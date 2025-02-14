@@ -18,6 +18,7 @@ defmodule PostgresReplication do
   """
   use Postgrex.ReplicationConnection
   require Logger
+  alias PostgresReplication.Handler
 
   @default_opts [
     auto_reconnect: true,

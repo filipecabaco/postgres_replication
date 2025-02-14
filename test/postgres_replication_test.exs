@@ -15,7 +15,7 @@ defmodule PostgresReplicationTest do
       table: :all,
       opts: [name: __MODULE__, auto_reconnect: true],
       handler_module: PostgresReplicationTest.PgoutputHandler,
-      parent_pid: self()
+      metadata: %{pid: self()}
     }
 
     {:ok, conn} = Postgrex.start_link(opts.connection_opts)
@@ -41,8 +41,8 @@ defmodule PostgresReplicationTest do
     @behaviour PostgresReplication.Handler
 
     @impl true
-    def call(<<?w, _header::192, message::binary>>, parent_pid) do
-      message |> PostgresReplication.Decoder.decode_message() |> then(&send(parent_pid, &1))
+    def call(<<?w, _header::192, message::binary>>, %{metadata: %{pid: pid}}) do
+      message |> PostgresReplication.Decoder.decode_message() |> then(&send(pid, &1))
       :noreply
     end
 
